@@ -1,0 +1,79 @@
+name: Flask App CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+    tags:
+      - "v*" # Triggers on release tags like v1.0.0
+  pull_request:
+    branches:
+      - main
+      - staging
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-node-version: "3.10"
+          cache: "pip" # Automatically caches dependencies for faster builds
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest # Ensures testing framework is present
+
+      - name: Run Unit Tests
+        run: |
+          pytest
+
+  deploy-staging:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_SERVER_IP }}
+          username: ${{ secrets.STAGING_SERVER_USER }}
+          key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/flask_staging
+            git pull origin staging
+            source venv/bin/activate
+            pip install -r requirements.txt
+            sudo systemctl restart flask_staging
+
+  deploy-production:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Production Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SERVER_IP }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/flask_production
+            git fetch --tags
+            git checkout ${{ github.ref_name }}
+            source venv/bin/activate
+            pip install -r requirements.txt
+            sudo systemctl restart flask_production
