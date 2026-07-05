@@ -52,14 +52,6 @@ The pipeline automatically performs the following tasks:
 
 ---
 
-## Jenkins Pipeline Screenshot
-
-### Stage View
-
-![Jenkins Pipeline Stage View](screenshots/jenkins-stage-view.png)
-
----
-
 ## Jenkins Trigger
 
 The Jenkins pipeline is automatically triggered whenever changes are pushed to the **main** branch using a GitHub Webhook.
